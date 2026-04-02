@@ -12,6 +12,18 @@ def import_stock_data(ticker: str, start_date: str, end_date: str):
     return data
 
 
+def compute_rsi(window: int, serie: pd.Series):
+    delta = serie.diff()
+    loss = -delta.clip(upper=0)
+    gain = delta.clip(lower=0)
+
+    avg_gain = gain.rolling(window).mean()
+    avg_loss = loss.rolling(window).mean()
+
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+
 def stock_data_analysis(ticker: str, start_date: str, end_date: str):
     hist_data = import_stock_data(ticker, start_date, end_date)
     if isinstance(hist_data.columns, pd.MultiIndex):
@@ -22,13 +34,22 @@ def stock_data_analysis(ticker: str, start_date: str, end_date: str):
     rolling_std = hist_data['Close'].rolling(20).std()
     hist_data['BB_upper'] = hist_data['MA20'] + 2 * rolling_std
     hist_data['BB_lower'] = hist_data['MA20'] - 2 * rolling_std
+    hist_data['MA20_diff'] = hist_data['Close'] - hist_data['MA20']
+    hist_data['BB_position'] = (hist_data['Close'] - hist_data['BB_lower']) / \
+        (hist_data['BB_upper'] - hist_data['BB_lower'])
+    hist_data['Momentum_5'] = hist_data['Close'] - hist_data['Close'].shift(5)
+    hist_data['Return'] = hist_data['Close'].pct_change()
+    hist_data['Volatility'] = hist_data['Return'].rolling(10).std()
+    hist_data['RSI_14'] = compute_rsi(14, hist_data['Close'])
+    hist_data['Close_lag_1'] = hist_data['Close'].shift(1)
+    hist_data['Close_lag_2'] = hist_data['Close'].shift(2)
     hist_data = hist_data.dropna()
     return hist_data
 
 
 def list_tickers():
-    Matrix_data = ['AAPL']
-    return Matrix_data
+    list_tickers = ['AAPL']
+    return list_tickers
 
 
 def plot_stock_data(ticker: str, hist_data: pd.DataFrame):
@@ -51,11 +72,13 @@ def plot_stock_data(ticker: str, hist_data: pd.DataFrame):
 def main():
     print("\nUsing Pandas to analyse Stock data:")
     tickers = list_tickers()
+    print("====" * 50)
     for ticker in tickers:
         hist_data = stock_data_analysis(ticker, "2020-01-01", "2021-01-01")
         # plot_stock_data(ticker, hist_data)
-        print(f"{ticker} data: {hist_data.head()}")
-    print("Analysis complete!")
+        print(f"{ticker} data: \n{hist_data.tail(10)}")
+    print("====" * 50)
+    print("\nAnalysis complete!")
 
 
 if __name__ == "__main__":
